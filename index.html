@@ -1,0 +1,667 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>その場でおてがる暑さ指数</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --asphalt:#171613;
+    --asphalt-2:#211f1b;
+    --concrete:#8f887c;
+    --paper:#f1ece1;
+    --amber:#ff8a3d;
+    --amber-dim:#b85e22;
+    --teal:#3fb8ae;
+    --red:#e6483a;
+    --line: rgba(241,236,225,0.12);
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  html,body{
+    background:var(--asphalt);
+    color:var(--paper);
+    font-family:'Inter', sans-serif;
+    min-height:100vh;
+    -webkit-font-smoothing:antialiased;
+  }
+  body{
+    display:flex;
+    justify-content:center;
+    padding:32px 18px 60px;
+  }
+  .panel{
+    width:100%;
+    max-width:460px;
+  }
+  .eyebrow{
+    font-family:'JetBrains Mono', monospace;
+    font-size:11px;
+    letter-spacing:0.18em;
+    text-transform:uppercase;
+    color:var(--concrete);
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    margin-bottom:6px;
+  }
+  .dot{
+    width:7px; height:7px; border-radius:50%;
+    background:var(--concrete);
+    display:inline-block;
+    margin-right:6px;
+  }
+  .dot.live{ background:var(--teal); box-shadow:0 0 8px var(--teal); animation:pulse 1.8s ease-in-out infinite; }
+  @keyframes pulse{ 0%,100%{opacity:1;} 50%{opacity:0.35;} }
+  h1{
+    font-family:'Space Grotesk', sans-serif;
+    font-weight:600;
+    font-size:22px;
+    letter-spacing:-0.01em;
+    margin-bottom:28px;
+    border-bottom:1px solid var(--line);
+    padding-bottom:18px;
+  }
+  .state{
+    padding:60px 8px;
+    text-align:center;
+    color:var(--concrete);
+    font-size:14px;
+    line-height:1.7;
+  }
+  .state button{
+    margin-top:18px;
+    background:var(--amber);
+    color:var(--asphalt);
+    border:none;
+    font-family:'Inter', sans-serif;
+    font-weight:600;
+    font-size:13px;
+    padding:11px 22px;
+    border-radius:3px;
+    cursor:pointer;
+    letter-spacing:0.01em;
+  }
+  .state button:hover{ background:#ffa262; }
+  .manual{
+    margin-top:26px;
+    padding-top:20px;
+    border-top:1px solid var(--line);
+  }
+  .manual-label{
+    font-family:'JetBrains Mono', monospace;
+    font-size:10px;
+    letter-spacing:0.08em;
+    text-transform:uppercase;
+    color:var(--concrete);
+    margin-bottom:10px;
+  }
+  .manual-row{
+    display:flex;
+    gap:8px;
+    margin-bottom:12px;
+  }
+  .manual-row input{
+    flex:1;
+    background:var(--asphalt-2);
+    border:1px solid var(--line);
+    color:var(--paper);
+    font-family:'JetBrains Mono', monospace;
+    font-size:12px;
+    padding:9px 10px;
+    border-radius:3px;
+  }
+  .manual-row input:focus{ outline:none; border-color:var(--amber); }
+  .manual-row input::placeholder{ color:#5c564c; }
+  .spinner{
+    width:26px; height:26px;
+    border-radius:50%;
+    border:2px solid var(--line);
+    border-top-color:var(--amber);
+    margin:0 auto 18px;
+    animation:spin 0.9s linear infinite;
+  }
+  @keyframes spin{ to{ transform:rotate(360deg); } }
+
+  .reading{ display:none; }
+  .reading.show{ display:block; }
+
+  .score-row{
+    display:flex;
+    align-items:baseline;
+    gap:14px;
+    margin-bottom:4px;
+  }
+  .score-num{
+    font-family:'Space Grotesk', sans-serif;
+    font-weight:700;
+    font-size:88px;
+    line-height:0.9;
+    letter-spacing:-0.03em;
+  }
+  .score-cat{
+    font-family:'JetBrains Mono', monospace;
+    font-size:15px;
+    letter-spacing:0.08em;
+    text-transform:uppercase;
+    font-weight:500;
+  }
+  .score-note{
+    color:var(--concrete);
+    font-size:13px;
+    margin-bottom:26px;
+  }
+
+  .gauge{
+    position:relative;
+    height:10px;
+    border-radius:5px;
+    background:linear-gradient(90deg, var(--teal) 0%, #d9c24a 42%, var(--amber) 68%, var(--red) 100%);
+    margin-bottom:6px;
+  }
+  .gauge-marker{
+    position:absolute;
+    top:-6px;
+    width:2px;
+    height:22px;
+    background:var(--paper);
+    box-shadow:0 0 6px rgba(241,236,225,0.6);
+    transform:translateX(-1px);
+    transition:left 0.6s cubic-bezier(.2,.8,.2,1);
+  }
+  .gauge-ticks{
+    display:flex;
+    justify-content:space-between;
+    font-family:'JetBrains Mono', monospace;
+    font-size:10px;
+    color:var(--concrete);
+    margin-bottom:20px;
+  }
+
+  .map-frame{
+    position:relative;
+    width:100%;
+    aspect-ratio:1;
+    overflow:hidden;
+    border:1px solid var(--line);
+    border-radius:3px;
+    background:var(--asphalt-2);
+  }
+  .map-grid{
+    display:grid;
+    grid-template-columns:repeat(3,1fr);
+    grid-template-rows:repeat(3,1fr);
+    width:100%;
+    height:100%;
+    filter:saturate(0.75) brightness(0.85) contrast(1.05);
+  }
+  .map-grid img{
+    width:100%;
+    height:100%;
+    object-fit:cover;
+    display:block;
+  }
+  .map-marker{
+    position:absolute;
+    width:12px;
+    height:12px;
+    margin-left:-6px;
+    margin-top:-6px;
+    border-radius:50%;
+    background:var(--amber);
+    box-shadow:0 0 0 3px rgba(255,138,61,0.3), 0 0 10px rgba(255,138,61,0.85);
+  }
+  .map-marker::after{
+    content:'';
+    position:absolute;
+    inset:-9px;
+    border-radius:50%;
+    border:1px solid rgba(255,138,61,0.55);
+    animation:mapPulse 2s ease-out infinite;
+  }
+  @keyframes mapPulse{
+    0%{ transform:scale(0.4); opacity:0.9; }
+    100%{ transform:scale(2); opacity:0; }
+  }
+  .map-caption{
+    display:flex;
+    justify-content:space-between;
+    font-family:'JetBrains Mono', monospace;
+    font-size:10px;
+    color:var(--concrete);
+    margin-top:8px;
+    margin-bottom:24px;
+  }
+
+  .grid{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:1px;
+    background:var(--line);
+    border:1px solid var(--line);
+    margin-bottom:20px;
+  }
+  .cell{
+    background:var(--asphalt);
+    padding:16px 16px 14px;
+  }
+  .cell-label{
+    font-family:'JetBrains Mono', monospace;
+    font-size:10px;
+    letter-spacing:0.1em;
+    text-transform:uppercase;
+    color:var(--concrete);
+    margin-bottom:8px;
+  }
+  .cell-value{
+    font-family:'Space Grotesk', sans-serif;
+    font-size:22px;
+    font-weight:600;
+    display:flex;
+    align-items:center;
+    gap:8px;
+  }
+  .cell-sub{
+    font-size:11px;
+    color:var(--concrete);
+    margin-top:4px;
+  }
+  .wind-arrow{
+    display:inline-block;
+    transition:transform 0.4s ease;
+  }
+
+  .factors{
+    font-size:12px;
+    color:var(--concrete);
+    line-height:1.8;
+    border-top:1px solid var(--line);
+    padding-top:16px;
+  }
+  .factors b{ color:var(--paper); font-weight:500; }
+
+  footer{
+    margin-top:26px;
+    font-family:'JetBrains Mono', monospace;
+    font-size:10px;
+    color:var(--concrete);
+    display:flex;
+    justify-content:space-between;
+    flex-wrap:wrap;
+    gap:6px;
+  }
+  footer a{ color:var(--concrete); }
+
+  .refresh{
+    background:none;
+    border:1px solid var(--line);
+    color:var(--concrete);
+    font-family:'JetBrains Mono', monospace;
+    font-size:10px;
+    letter-spacing:0.08em;
+    text-transform:uppercase;
+    padding:6px 10px;
+    border-radius:3px;
+    cursor:pointer;
+  }
+  .refresh:hover{ border-color:var(--concrete); color:var(--paper); }
+</style>
+</head>
+<body>
+<div class="panel">
+  <div class="eyebrow">
+    <span><span class="dot" id="statusDot"></span><span id="statusText">初期化中</span></span>
+    <span id="clock"></span>
+  </div>
+  <h1>その場でおてがる暑さ指数</h1>
+
+  <div class="state" id="stateLoading">
+    <div class="spinner"></div>
+    位置情報を取得しています…
+  </div>
+
+  <div class="state" id="stateError" style="display:none;">
+    <div id="errorMsg">位置情報を取得できませんでした。</div>
+    <button onclick="run()">再試行</button>
+    <div class="manual">
+      <div class="manual-label">または座標を直接入力</div>
+      <div class="manual-row">
+        <input type="text" id="manualLat" placeholder="緯度 例: 35.681236">
+        <input type="text" id="manualLon" placeholder="経度 例: 139.767125">
+      </div>
+      <button onclick="runManual()">この座標で計測</button>
+    </div>
+  </div>
+
+  <div class="reading" id="reading">
+    <div class="score-row">
+      <div class="score-num" id="scoreNum">—</div>
+      <div class="score-cat" id="scoreCat">—</div>
+    </div>
+    <div class="score-note" id="scoreNote">計算中…</div>
+
+    <div class="gauge">
+      <div class="gauge-marker" id="gaugeMarker" style="left:0%"></div>
+    </div>
+    <div class="gauge-ticks">
+      <span>涼しい</span><span>やや暑い</span><span>暑い</span><span>猛暑</span>
+    </div>
+
+    <div class="map-frame" id="mapFrame">
+      <div class="map-grid" id="mapGrid"></div>
+      <div class="map-marker" id="mapMarker"></div>
+    </div>
+    <div class="map-caption" id="mapCaption">
+      <span id="mapCoords">—</span><span>© OpenStreetMap contributors</span>
+    </div>
+
+    <div class="grid">
+      <div class="cell">
+        <div class="cell-label">気温</div>
+        <div class="cell-value" id="tempVal">—</div>
+        <div class="cell-sub" id="tempSub">Open-Meteo</div>
+      </div>
+      <div class="cell">
+        <div class="cell-label">風</div>
+        <div class="cell-value"><span class="wind-arrow" id="windArrow">↑</span><span id="windVal">—</span></div>
+        <div class="cell-sub" id="windSub">&nbsp;</div>
+      </div>
+      <div class="cell">
+        <div class="cell-label">周辺の建物数</div>
+        <div class="cell-value" id="buildingVal">—</div>
+        <div class="cell-sub">半径300m以内・全方位</div>
+      </div>
+      <div class="cell">
+        <div class="cell-label">幹線道路</div>
+        <div class="cell-value" id="roadVal">—</div>
+        <div class="cell-sub">半径300m以内</div>
+      </div>
+      <div class="cell">
+        <div class="cell-label">緑地</div>
+        <div class="cell-value" id="greenVal">—</div>
+        <div class="cell-sub">半径300m以内・多いほどスコア低下</div>
+      </div>
+      <div class="cell" style="grid-column:1 / -1;">
+        <div class="cell-label">風上の建物数</div>
+        <div class="cell-value" id="upwindVal">—</div>
+        <div class="cell-sub" id="upwindSub">風上方向250m圏内・多いほどスコア上昇</div>
+      </div>
+    </div>
+
+    <div class="factors" id="factors"></div>
+
+    <footer>
+      <span>気象: Open-Meteo ・ 地物: © OpenStreetMap contributors</span>
+      <button class="refresh" onclick="run()">更新</button>
+    </footer>
+  </div>
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+
+function setStatus(text, live){
+  $('statusText').textContent = text;
+  $('statusDot').classList.toggle('live', !!live);
+}
+
+function tickClock(){
+  const now = new Date();
+  $('clock').textContent = now.toLocaleTimeString('ja-JP', {hour:'2-digit', minute:'2-digit'});
+}
+tickClock();
+setInterval(tickClock, 30000);
+
+function showState(name){
+  $('stateLoading').style.display = name === 'loading' ? 'block' : 'none';
+  $('stateError').style.display = name === 'error' ? 'block' : 'none';
+  $('reading').classList.toggle('show', name === 'reading');
+}
+
+function getPosition(){
+  return new Promise((resolve, reject) => {
+    if(!navigator.geolocation){
+      reject(new Error('このブラウザは位置情報に対応していません。下の欄に緯度・経度を直接入力してください。'));
+      return;
+    }
+    let settled = false;
+    const timer = setTimeout(() => {
+      if(settled) return;
+      settled = true;
+      reject(new Error('位置情報の取得がタイムアウトしました。この埋め込み環境が位置情報アクセスをブロックしている可能性があります。下の欄に緯度・経度を直接入力してください。'));
+    }, 10000);
+    try{
+      navigator.geolocation.getCurrentPosition(
+        pos => {
+          if(settled) return;
+          settled = true;
+          clearTimeout(timer);
+          resolve(pos.coords);
+        },
+        err => {
+          if(settled) return;
+          settled = true;
+          clearTimeout(timer);
+          reject(new Error('位置情報の取得が拒否されたか失敗しました。下の欄に緯度・経度を直接入力してください。'));
+        },
+        { enableHighAccuracy:true, timeout:9000, maximumAge:60000 }
+      );
+    }catch(e){
+      if(!settled){
+        settled = true;
+        clearTimeout(timer);
+        reject(new Error('位置情報APIの呼び出しに失敗しました。下の欄に緯度・経度を直接入力してください。'));
+      }
+    }
+  });
+}
+
+async function fetchWeather(lat, lon){
+  const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,wind_speed_10m,wind_direction_10m&timezone=auto`;
+  let res;
+  try{
+    res = await fetch(url);
+  }catch(e){
+    throw new Error('気象データ(Open-Meteo)への通信に失敗しました。詳細: ' + e.message);
+  }
+  if(!res.ok) throw new Error('気象データ(Open-Meteo)の取得に失敗しました。HTTP ' + res.status);
+  const data = await res.json();
+  return data.current;
+}
+
+const OVERPASS_MIRRORS = [
+  'https://overpass-api.de/api/interpreter',
+  'https://overpass.kumi.systems/api/interpreter',
+  'https://maps.mail.ru/osm/tools/overpass/api/interpreter'
+];
+
+async function overpassCount(query, label){
+  let lastErr;
+  for(const url of OVERPASS_MIRRORS){
+    try{
+      const res = await fetch(url, { method:'POST', body:'data=' + encodeURIComponent(query) });
+      if(!res.ok){
+        lastErr = new Error(`地物データ(${label})の取得に失敗しました。HTTP ${res.status}(${url})`);
+        continue;
+      }
+      const data = await res.json();
+      const el = data.elements && data.elements.find(e => e.type === 'count');
+      return el ? (el.tags.total ? parseInt(el.tags.total, 10) : 0) : 0;
+    }catch(e){
+      lastErr = new Error(`地物データ(${label})への通信に失敗しました(${url})。詳細: ` + e.message);
+    }
+  }
+  throw lastErr || new Error(`地物データ(${label})の取得に失敗しました。`);
+}
+
+async function fetchBuildingCount(lat, lon, radius){
+  const q = `[out:json][timeout:20];way["building"](around:${radius},${lat},${lon});out count;`;
+  return overpassCount(q, '建物');
+}
+
+async function fetchMajorRoadCount(lat, lon, radius){
+  const q = `[out:json][timeout:20];way["highway"~"^(motorway|trunk|primary|secondary)$"](around:${radius},${lat},${lon});out count;`;
+  return overpassCount(q, '幹線道路');
+}
+
+async function fetchGreenCount(lat, lon, radius){
+  const q = `[out:json][timeout:20];(way["leisure"="park"](around:${radius},${lat},${lon});way["landuse"~"^(grass|forest|meadow|recreation_ground)$"](around:${radius},${lat},${lon});way["natural"~"^(wood|grassland)$"](around:${radius},${lat},${lon}););out count;`;
+  return overpassCount(q, '緑地');
+}
+
+function lon2tileXf(lon, zoom){
+  return (lon + 180) / 360 * Math.pow(2, zoom);
+}
+
+function lat2tileYf(lat, zoom){
+  const rad = lat * Math.PI / 180;
+  return (1 - Math.log(Math.tan(rad) + 1 / Math.cos(rad)) / Math.PI) / 2 * Math.pow(2, zoom);
+}
+
+function renderMap(lat, lon){
+  const zoom = 17;
+  const xf = lon2tileXf(lon, zoom);
+  const yf = lat2tileYf(lat, zoom);
+  const cx = Math.floor(xf);
+  const cy = Math.floor(yf);
+
+  const grid = $('mapGrid');
+  grid.innerHTML = '';
+  for(let row = -1; row <= 1; row++){
+    for(let col = -1; col <= 1; col++){
+      const tx = cx + col;
+      const ty = cy + row;
+      const img = document.createElement('img');
+      img.src = `https://tile.openstreetmap.org/${zoom}/${tx}/${ty}.png`;
+      img.alt = '';
+      grid.appendChild(img);
+    }
+  }
+
+  const fracX = (xf - (cx - 1)) / 3 * 100;
+  const fracY = (yf - (cy - 1)) / 3 * 100;
+  $('mapMarker').style.left = fracX + '%';
+  $('mapMarker').style.top = fracY + '%';
+  $('mapCoords').textContent = `${lat.toFixed(5)}, ${lon.toFixed(5)}`;
+}
+
+function offsetPoint(lat, lon, bearingDeg, distanceM){
+  const R = 6371000;
+  const bearing = bearingDeg * Math.PI / 180;
+  const lat1 = lat * Math.PI / 180;
+  const lon1 = lon * Math.PI / 180;
+  const dR = distanceM / R;
+  const lat2 = Math.asin(Math.sin(lat1) * Math.cos(dR) + Math.cos(lat1) * Math.sin(dR) * Math.cos(bearing));
+  const lon2 = lon1 + Math.atan2(Math.sin(bearing) * Math.sin(dR) * Math.cos(lat1), Math.cos(dR) - Math.sin(lat1) * Math.sin(lat2));
+  return { lat: lat2 * 180 / Math.PI, lon: lon2 * 180 / Math.PI };
+}
+
+function windCompass(deg){
+  const dirs = ['北','北北東','北東','東北東','東','東南東','南東','南南東','南','南南西','南西','西南西','西','西北西','北西','北北西'];
+  return dirs[Math.round(deg / 22.5) % 16];
+}
+
+function scoreCategory(score){
+  if(score < 25) return { label:'涼しい', color:'#3fb8ae' };
+  if(score < 50) return { label:'やや暑い', color:'#d9c24a' };
+  if(score < 75) return { label:'暑い', color:'#ff8a3d' };
+  return { label:'猛暑', color:'#e6483a' };
+}
+
+function computeScore({ temp, wind, buildings, majorRoads, upwindBuildings, green }){
+  const heatIslandBonus = Math.max(0, Math.min(3, buildings * 0.075));
+  const effectiveTemp = temp + heatIslandBonus;
+  const tempScore = Math.max(0, Math.min(35, (effectiveTemp - 10) / 25 * 35));
+  const buildingScore = Math.max(0, Math.min(20, (buildings / 40) * 20));
+  const upwindScore = Math.max(0, Math.min(25, 25 * Math.sqrt(upwindBuildings / 25)));
+  const roadScore = majorRoads > 0 ? 10 : 0;
+  const windRelief = Math.max(0, Math.min(11, wind * 0.9));
+  const greenRelief = Math.max(0, Math.min(9, green * 1.5));
+  let raw = tempScore + buildingScore + upwindScore + roadScore - windRelief - greenRelief;
+  raw = Math.max(0, Math.min(100, raw));
+  return { total: Math.round(raw), tempScore, buildingScore, upwindScore, roadScore, windRelief, greenRelief, heatIslandBonus };
+}
+
+async function run(manualCoords){
+  showState('loading');
+  setStatus(manualCoords ? 'データ取得中' : '位置情報を取得中');
+  try{
+    const coords = manualCoords || await getPosition();
+    setStatus('データ取得中');
+    renderMap(coords.latitude, coords.longitude);
+
+    const weather = await fetchWeather(coords.latitude, coords.longitude);
+    const windDir = weather.wind_direction_10m;
+    // windDir is the direction the wind blows FROM, so that bearing from
+    // the current point marks the upwind side to sample building density.
+    const upwindPoint = offsetPoint(coords.latitude, coords.longitude, windDir, 250);
+
+    const [buildings, majorRoads, upwindBuildings, green] = await Promise.all([
+      fetchBuildingCount(coords.latitude, coords.longitude, 300),
+      fetchMajorRoadCount(coords.latitude, coords.longitude, 300),
+      fetchBuildingCount(upwindPoint.lat, upwindPoint.lon, 250),
+      fetchGreenCount(coords.latitude, coords.longitude, 300)
+    ]);
+
+    const temp = weather.temperature_2m;
+    const wind = weather.wind_speed_10m;
+
+    const result = computeScore({ temp, wind, buildings, majorRoads, upwindBuildings, green });
+    const cat = scoreCategory(result.total);
+
+    $('scoreNum').textContent = result.total;
+    $('scoreNum').style.color = cat.color;
+    $('scoreCat').textContent = cat.label;
+    $('scoreCat').style.color = cat.color;
+    $('scoreNote').textContent = `現在地の推定ヒートスコア(0–100) ・ 気温 ${temp.toFixed(1)}℃を基準に算出`;
+
+    $('gaugeMarker').style.left = result.total + '%';
+
+    $('tempVal').textContent = temp.toFixed(1) + '℃';
+    $('tempSub').textContent = result.heatIslandBonus > 0.05
+      ? `Open-Meteo ・ 建物密度による体感 +${result.heatIslandBonus.toFixed(1)}℃`
+      : 'Open-Meteo';
+    $('windVal').textContent = wind.toFixed(1) + ' m/s';
+    $('windSub').textContent = windCompass(windDir) + 'から';
+    $('windArrow').style.transform = `rotate(${windDir}deg)`;
+
+    $('buildingVal').textContent = buildings + ' 棟';
+    $('roadVal').textContent = majorRoads > 0 ? 'あり' : 'なし';
+    $('roadVal').style.color = majorRoads > 0 ? '#ff8a3d' : 'inherit';
+    $('upwindVal').textContent = upwindBuildings + ' 棟';
+    $('upwindSub').textContent = `風上(${windCompass(windDir)}側)250m圏内・多いほどスコア上昇`;
+    $('greenVal').textContent = green + ' 箇所';
+
+    $('factors').innerHTML =
+      `内訳 — 気温寄与 <b>+${result.tempScore.toFixed(0)}</b>(建物密度で体感+${result.heatIslandBonus.toFixed(1)}℃を加味) ・ ` +
+      `建物密度 <b>+${result.buildingScore.toFixed(0)}</b> ・ ` +
+      `風上の建物密度 <b>+${result.upwindScore.toFixed(0)}</b> ・ 幹線道路 <b>+${result.roadScore}</b> ・ ` +
+      `風による緩和 <b>−${result.windRelief.toFixed(0)}</b> ・ 緑地による緩和 <b>−${result.greenRelief.toFixed(0)}</b>`;
+
+    showState('reading');
+    setStatus('計測完了', true);
+  }catch(err){
+    $('errorMsg').textContent = err.message || 'データの取得に失敗しました。通信環境を確認して再試行してください。';
+    showState('error');
+    setStatus('エラー');
+  }
+}
+
+function runManual(){
+  const latStr = $('manualLat').value.trim();
+  const lonStr = $('manualLon').value.trim();
+  const lat = parseFloat(latStr);
+  const lon = parseFloat(lonStr);
+  if(isNaN(lat) || isNaN(lon) || lat < -90 || lat > 90 || lon < -180 || lon > 180){
+    $('errorMsg').textContent = '緯度・経度の形式が正しくありません。例: 緯度 35.681236 / 経度 139.767125';
+    showState('error');
+    return;
+  }
+  run({ latitude:lat, longitude:lon });
+}
+
+run();
+</script>
+</body>
+</html>
